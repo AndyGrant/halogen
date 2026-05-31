@@ -1,2 +1,5 @@
 build/*
 bin/*
+shuffle_logs/*
+bench_logs/*
+src/halogen
