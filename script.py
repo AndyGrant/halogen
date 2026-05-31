@@ -15,10 +15,8 @@ LOGS_DIR     = HALOGEN_DIR / "shuffle_logs"
 BENCH_DIR    = HALOGEN_DIR / "bench_logs"
 REMOTE_HOST = "gpu303"
 
-VERBOSE = False
-
-def run(cmd, **kwargs):
-    if VERBOSE:
+def run(cmd, verbose=False, **kwargs):
+    if verbose:
         print(f"$ {cmd if isinstance(cmd, str) else ' '.join(str(c) for c in cmd)}")
     else:
         kwargs.setdefault("stdout", subprocess.DEVNULL)
@@ -38,8 +36,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--override",      action="store_true", help="Force a rebuild and reshuffle")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print commands and subprocess output")
+    parser.add_argument("-y", "--yes",     action="store_true", help="Actually run the commit command")
     args = parser.parse_args()
-    VERBOSE = args.verbose
 
     # -- Step 0 -- : Setup paths, resolved relative to this script, not the cwd.
     network      = f"{args.exp}-stage{args.stage}-{args.sb}.bb"
@@ -61,7 +59,7 @@ if __name__ == "__main__":
             f"{REMOTE_HOST}:training/virifiles/bullet-{args.exp}/"
             f"bullet-{args.exp}-stage{args.stage}-{args.sb}/quantised.bin"
         )
-        run(["scp", remote, str(network_path)])
+        run(["scp", remote, str(network_path)], verbose=args.verbose)
 
     # -- Step 3 -- : Update FT_SIZE in arch.hpp before building.
     text = ARCH_HPP.read_text()
@@ -82,7 +80,7 @@ if __name__ == "__main__":
             f"make -j shuffle EXE=halogen EVALFILE={network_path} "
             f"&& ./halogen shuffle_network > {log_path}"
         )
-        run(make_cmd, shell=True, cwd=SRC_DIR, executable="/bin/bash")
+        run(make_cmd, shell=True, cwd=SRC_DIR, executable="/bin/bash", verbose=args.verbose)
 
     # -- Step 5 -- : Apply the permutation. It is the second to last line of the log.
     perm_line = log_path.read_text().splitlines()[-2]
@@ -112,10 +110,19 @@ if __name__ == "__main__":
         f"make -j release EXE=halogen EVALFILE={network_path} "
         f"&& ./halogen bench > {bench_path}"
     )
-    run(bench_cmd, shell=True, cwd=SRC_DIR, executable="/bin/bash")
+    run(bench_cmd, shell=True, cwd=SRC_DIR, executable="/bin/bash", verbose=args.verbose)
     print(f"wrote bench results to {bench_path}")
 
-    # -- Step 7 -- : Print (but don't run) the commit command. Bench is the first value of the last line.
+    # -- Step 7 -- : Commit. Bench is the first value of the last line of the bench log.
     bench = bench_path.read_text().splitlines()[-1].split()[0]
-    print("\nTo commit:")
-    print(f'git checkout {network} && git add src/* && git commit -m "{network} Bench {bench}"')
+    commit_cmd = f'git checkout {network} && git add src/* && git commit -m "{network} Bench {bench}"'
+
+    if not args.yes:
+        print("\nTo commit:")
+        print(commit_cmd)
+    else:
+        run(commit_cmd, shell=True, cwd=HALOGEN_DIR, executable="/bin/bash", verbose=args.verbose)
+        log = subprocess.run(
+            ["git", "log", "-1"], cwd=HALOGEN_DIR, capture_output=True, text=True
+        )
+        print(log.stdout)
