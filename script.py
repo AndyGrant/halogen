@@ -134,19 +134,23 @@ def commit(args, network, bench_path):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--exp",      type=str, required=True, help="Experiment Name (exp14) ")
-    parser.add_argument("--stage",    type=int, default=2,     help="Training Stage (Default: 2")
-    parser.add_argument("--sb",       type=int, default=100,   help="SuperBatch Number (Default: 100)")
-    parser.add_argument("--ftsize",   type=int, default=768,   help="Overwride src/network/arch.hpp's FT_SIZE (Default: 768)")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument("--override",      action="store_true", help="Force a rebuild and reshuffle")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Print commands and subprocess output")
-    parser.add_argument("-y", "--yes",     action="store_true", help="Assume Y to prompts (skip commit confirmation)")
+    experiment = parser.add_argument_group("experiment")
+    experiment.add_argument("--exp",      type=str, required=True, help="Experiment Name (exp14)")
+    experiment.add_argument("--stage",    type=int, default=2,     help="Training Stage (Default: 2)")
+    experiment.add_argument("--sb",       type=int, default=100,   help="SuperBatch Number (Default: 100)")
+    experiment.add_argument("--ftsize",   type=int, default=768,   help="Override src/network/arch.hpp's FT_SIZE (Default: 768)")
 
-    parser.add_argument("-U", "--username", default=os.environ.get("TORCHBENCH_USERNAME"), help="TorchBench username (or TORCHBENCH_USERNAME)")
-    parser.add_argument("-P", "--password", default=os.environ.get("TORCHBENCH_PASSWORD"), help="TorchBench password (or TORCHBENCH_PASSWORD)")
-    parser.add_argument("-S", "--server",   default=os.environ.get("TORCHBENCH_SERVER"),   help="TorchBench server (or TORCHBENCH_SERVER)")
+    behaviour = parser.add_argument_group("behaviour")
+    behaviour.add_argument("--override",      action="store_true", help="Force a rebuild and reshuffle")
+    behaviour.add_argument("-v", "--verbose", action="store_true", help="Print commands and subprocess output")
+    behaviour.add_argument("-y", "--yes",     action="store_true", help="Assume Y to prompts (skip commit confirmation)")
+
+    torchbench = parser.add_argument_group("torchbench")
+    torchbench.add_argument("--username", default=os.environ.get("TORCHBENCH_USERNAME"), help="TorchBench username (or TORCHBENCH_USERNAME)")
+    torchbench.add_argument("--password", default=os.environ.get("TORCHBENCH_PASSWORD"), help="TorchBench password (or TORCHBENCH_PASSWORD)")
+    torchbench.add_argument("--server",   default=os.environ.get("TORCHBENCH_SERVER"),   help="TorchBench server   (or TORCHBENCH_SERVER  )")
     args = parser.parse_args()
 
     # -- Step 0 -- : Setup paths, resolved relative to this script, not the cwd.
