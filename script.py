@@ -56,6 +56,7 @@ def upload_to_torchbench(args, network, network_path):
         return
     if not args.yes and input(f"Upload {network} to TorchBench? [Y/n] ").strip().lower() not in ("", "y", "yes"):
         return
+    print(f"uploading {network} to TorchBench...")
     data = {**creds, "engine": ENGINE, "name": network, "action": "UPLOAD_NETWORK"}
     with open(network_path, "rb") as netfile:
         r = requests.post(url_join(args.server, "scripts"), data=data, files={"netfile": netfile})
@@ -121,8 +122,8 @@ def bench_network(args, network_path, bench_path):
 def commit(args, network, bench_path):
     bench = bench_path.read_text().splitlines()[-1].split()[0]
     commit_cmd = (
-        f'(git checkout {network} 2>/dev/null || git checkout -b {network}) '
-        f'&& git add src/* && git commit -m "{network} Bench {bench}"'
+        f'git checkout -B {network} '
+        f'&& git add "*.h" "*.cpp" && git commit -m "{network} Bench {bench}"'
     )
     print("\nTo commit:")
     print(commit_cmd)
@@ -131,6 +132,11 @@ def commit(args, network, bench_path):
     run(commit_cmd, shell=True, cwd=HALOGEN_DIR, executable="/bin/bash", verbose=args.verbose)
     log = subprocess.run(["git", "log", "-1"], cwd=HALOGEN_DIR, capture_output=True, text=True)
     print(log.stdout)
+
+    # The push always requires explicit confirmation; -y never applies here.
+    if input(f"Push to origin/{network}? [y/N] ").strip().lower() not in ("y", "yes"):
+        return
+    run(f"git push -u origin {network}", shell=True, cwd=HALOGEN_DIR, executable="/bin/bash", verbose=args.verbose)
 
 if __name__ == "__main__":
 
@@ -145,7 +151,7 @@ if __name__ == "__main__":
     behaviour = parser.add_argument_group("behaviour")
     behaviour.add_argument("--override",      action="store_true", help="Force a rebuild and reshuffle")
     behaviour.add_argument("-v", "--verbose", action="store_true", help="Print commands and subprocess output")
-    behaviour.add_argument("-y", "--yes",     action="store_true", help="Assume Y to prompts (skip commit confirmation)")
+    behaviour.add_argument("-y", "--yes",     action="store_true", help="Auto-confirm every prompt except the final git push")
 
     torchbench = parser.add_argument_group("torchbench")
     torchbench.add_argument("--username", default=os.environ.get("TORCHBENCH_USERNAME"), help="TorchBench username (or TORCHBENCH_USERNAME)")
